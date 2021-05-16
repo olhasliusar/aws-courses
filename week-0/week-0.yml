@@ -1,0 +1,31 @@
+Description: Week 0 task
+
+Parameters:
+  InstanceTypeParameter:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - t2.micro
+
+  ImageIdParameter:
+    Description: EC2 instance image id
+    Type: String
+    Default: ami-0cf6f5c8a62fa5da6
+    AllowedValues:
+    - ami-0cf6f5c8a62fa5da6
+
+Resources:
+  MyEC2Instance: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: 
+        Ref: ImageIdParameter
+      InstanceType: 
+        Ref: InstanceTypeParameter
+
+Outputs:
+  PublicIp:
+    Description: EC2 public ip
+    Value: !GetAtt MyEC2Instance.PublicIp
+
