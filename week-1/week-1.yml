@@ -1,0 +1,70 @@
+Description: Week 1 - EC2, Auto Scaling, Security Groups
+
+Parameters:
+  UserDataParameter:
+    Description: UserData script, it will be encoded to base64
+    Type: String
+    Default: |
+      #!/bin/bash
+      sudo amazon-linux-extras enable corretto8
+      sudo yum install java-1.8.0-amazon-corretto -y
+
+  KeyPairParameter:
+    Description: Name of an existing EC2 key pair for SSH access to the EC2 instance
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: LohikaKeyPair
+    AllowedValues:
+      - LohikaKeyPair
+
+  ImageIdParameter:
+    Description: EC2 instance image id
+    Type: String
+    Default: ami-0cf6f5c8a62fa5da6
+    AllowedValues:
+    - ami-0cf6f5c8a62fa5da6
+
+  InstanceTypeParameter:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+
+Resources:
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22, HTTP via port 80
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+
+  MyAutoScalingConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref ImageIdParameter
+      UserData:
+        Fn::Base64: !Sub |
+          ${UserDataParameter}
+      InstanceType: !Ref InstanceTypeParameter
+      KeyName: !Ref KeyPairParameter
+      SecurityGroups:
+        - !Ref MySecurityGroup
+
+  MyASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchConfigurationName: !Ref MyAutoScalingConfig
+      DesiredCapacity: 2
+      MinSize: 2
+      MaxSize: 3
+      AvailabilityZones:
+        - us-west-2a
+        - us-west-2b
+        - us-west-2c
