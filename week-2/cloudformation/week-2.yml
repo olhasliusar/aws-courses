@@ -1,0 +1,125 @@
+Description: Week 2 - Simple Storage Service (S3)
+
+Parameters:
+  BucketName:
+    Description: S3 Bucket Name
+    Type: String
+    Default: olga-lohika-bucket
+
+  UserDataParameter:
+    Description: UserData script, it will be encoded to base64
+    Type: String
+    Default: |
+      #!/bin/bash
+      sudo aws s3 cp s3://olga-lohika-bucket/file.txt file.txt
+
+  KeyPairParameter:
+    Description: Name of an existing EC2 key pair for SSH access to the EC2 instance
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: LohikaKeyPair
+    AllowedValues:
+      - LohikaKeyPair
+
+  ImageIdParameter:
+    Description: EC2 instance image id
+    Type: String
+    Default: ami-0cf6f5c8a62fa5da6
+    AllowedValues:
+    - ami-0cf6f5c8a62fa5da6
+
+  InstanceTypeParameter:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+
+  VPCIdNameForS3:
+    Description: Select the VPC to launch into
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-be2b1ec6
+
+  SubnetIDForS3:
+    Description: Subnet ID
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-6697111e
+
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+#    Metadata:
+#      AWS::CloudFormation::Authentication:
+#        S3AccessCreds:
+#          type: S3
+#          buckets:
+#            - !Sub ${BucketName}
+#          roleName:
+#            Ref: S3WritableRole
+#      AWS::CloudFormation::Init:
+#        config:
+#          commands:
+#            download:
+#              command: "sudo aws s3 cp s3://olga-lohika-bucket/file.txt file.txt"
+    Properties:
+      IamInstanceProfile: !Ref S3InstanceProfile
+      ImageId: !Ref ImageIdParameter
+      InstanceType: !Ref InstanceTypeParameter
+      KeyName: !Ref KeyPairParameter
+      SubnetId: !Ref SubnetIDForS3
+      SecurityGroupIds:
+        - !Ref MySecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          ${UserDataParameter}
+
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22, HTTP via port 80
+      VpcId: !Ref VPCIdNameForS3
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+
+  S3WritableRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+
+  S3RolePolicies:
+    Type: AWS::IAM::Policy
+    DependsOn:
+      - MyEC2Instance
+    Properties:
+      PolicyName: rootS3
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 's3:*'
+            Resource: '*'
+      Roles:
+        - !Ref S3WritableRole
+
+  S3InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref S3WritableRole
+
+Outputs:
+  PublicIp:
+    Description: EC2 public ip
+    Value: !GetAtt MyEC2Instance.PublicIp
